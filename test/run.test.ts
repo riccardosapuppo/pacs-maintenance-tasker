@@ -11,15 +11,28 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-import { catalogue } from '../src/archive/catalogue.js';
-import { records } from '../src/records/system.js';
-import { files } from '../src/files/store.js';
-import { look, carryOut, runOnce, FILES_FIRST, POINTER_FIRST } from '../src/decide/run.js';
+import { catalogue } from '../src/archive/catalogue.ts';
+import { records } from '../src/records/system.ts';
+import { files } from '../src/files/store.ts';
+import { look, carryOut, runOnce, FILES_FIRST, POINTER_FIRST } from '../src/decide/run.ts';
+
+/**
+ * One line of a plan: what to put in the archive and what the records know.
+ *
+ * A tuple rather than an object because these read as rows in the tests, and
+ * the fourth element is where every awkward case lives.
+ */
+type PlanLine = [
+  accession: string | null,
+  studyDate: string,
+  reportedOn: string | null,
+  extra?: { noFiles?: boolean; noBooking?: boolean; withdrawn?: boolean },
+];
 
 const WHEN = { today: '2026-09-03', keepForDays: 40, reportSettlesAfterDays: 40 };
 
 /** A small archive: `plan` is a list of [accession|null, studyDate, reportedOn|null]. */
-function world(plan) {
+function world(plan: PlanLine[]) {
   const archive = catalogue();
   const recordSystem = records();
   const store = files();
@@ -27,7 +40,7 @@ function world(plan) {
   const fsId = archive.addFilesystem(store.home);
   const storage = archive.addStorage(fsId, 'p1');
 
-  plan.forEach(([accession, studyDate, reportedOn, extra = {}], at) => {
+  plan.forEach(([accession, studyDate, reportedOn, extra = {}]: PlanLine, at: number) => {
     const studyUid = `1.2.3.${at + 1}`;
 
     archive.add({
@@ -84,7 +97,7 @@ test('a dry run changes nothing at all', () => {
 });
 
 test('the dry run and the real run choose exactly the same studies', () => {
-  const plan = [
+  const plan: PlanLine[] = [
     ['ACC1', OLD, REPORTED],
     ['ACC2', '2026-08-30', REPORTED],
     ['ACC3', OLD, null],

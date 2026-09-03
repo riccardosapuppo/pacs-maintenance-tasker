@@ -58,7 +58,7 @@ export async function aBrowser({ headless = true } = {}) {
 
       return { browser, channel };
     } catch (error) {
-      refused.push(`${channel}: ${error.message.split('\n')[0]}`);
+      refused.push(`${channel}: ${String(error instanceof Error ? error.message : error).split('\n')[0]}`);
     }
   }
 

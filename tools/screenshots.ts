@@ -17,8 +17,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { aBrowser } from './a-browser.mjs';
-import { startTheService } from './with-the-service.mjs';
+import { aBrowser } from './a-browser.ts';
+import { startTheService } from './with-the-service.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DOCS = path.join(here, '..', 'docs');
@@ -30,7 +30,7 @@ const { browser, channel } = await aBrowser();
 
 console.log(`\nRetaking the pictures in ${channel}\n`);
 
-const say = (name) => console.log(`  docs/${name}`);
+const say = (name: string): void => console.log(`  docs/${name}`);
 
 try {
   const page = await browser.newPage({
@@ -39,10 +39,10 @@ try {
     reducedMotion: 'reduce',
   });
 
-  const press = async (which) => {
+  const press = async (which: string): Promise<void> => {
     const before = await page.getAttribute('body', 'data-drawn');
     await page.locator(which).click();
-    await page.waitForFunction((was) => document.body.dataset.drawn !== was, before, { timeout: 30_000 });
+    await page.waitForFunction((was: string | null) => document.body.dataset.drawn !== was, before, { timeout: 30_000 });
     await page.waitForTimeout(300);
   };
 
@@ -100,14 +100,15 @@ try {
         .join('')
   );
 
-  await mark.waitForFunction(() => [...document.images].every((one) => one.complete));
+  await mark.waitForFunction(() => Array.from(document.images).every((one) => one.complete));
   await mark.screenshot({ path: path.join(DOCS, 'the-mark.png') });
   say('the-mark.png');
   await mark.close();
 
   await page.close();
 } catch (error) {
-  console.error(`\nThe pictures could not be retaken: ${error.message.split('\n')[0]}`);
+  const why = error instanceof Error ? error.message : String(error);
+  console.error(`\nThe pictures could not be retaken: ${why.split('\n')[0]}`);
   process.exitCode = 1;
 } finally {
   await browser.close();

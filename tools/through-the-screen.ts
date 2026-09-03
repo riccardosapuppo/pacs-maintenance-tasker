@@ -17,15 +17,15 @@
  * green having driven a stranger's process.
  */
 
-import { aBrowser } from './a-browser.mjs';
-import { startTheService } from './with-the-service.mjs';
+import { aBrowser } from './a-browser.ts';
+import { startTheService } from './with-the-service.ts';
 
 const show = process.argv.includes('--show');
 
 let checks = 0;
 let bad = 0;
 
-function is(what, got, wanted, detail) {
+function is(what: string, got: unknown, wanted: unknown, detail?: unknown): void {
   checks += 1;
 
   if (got === wanted) return console.log(`    ok    ${what}`);
@@ -34,7 +34,7 @@ function is(what, got, wanted, detail) {
   console.log(`    NO    ${what}\n            wanted ${JSON.stringify(wanted)}, got ${JSON.stringify(detail ?? got)}`);
 }
 
-function has(what, got, wanted) {
+function has(what: string, got: unknown, wanted: unknown): void {
   checks += 1;
 
   if (String(got ?? '').toLowerCase().includes(String(wanted).toLowerCase())) {
@@ -45,7 +45,7 @@ function has(what, got, wanted) {
   console.log(`    NO    ${what}\n            wanted something containing ${JSON.stringify(wanted)}, got ${JSON.stringify(got)}`);
 }
 
-const say = (what) => console.log(`\n  ${what}`);
+const say = (what: string): void => console.log(`\n  ${what}`);
 
 const service = await startTheService();
 const { browser, channel } = await aBrowser({ headless: !show });
@@ -54,13 +54,14 @@ const page = await browser.newPage({ viewport: { width: 1500, height: 1200 }, re
 // Anything the page throws fails this even if every assertion passes: a screen
 // that works while quietly throwing is one that stops working on the next
 // browser.
-const thrown = [];
-page.on('pageerror', (error) => thrown.push(`threw: ${error.message}`));
-page.on('console', (message) => {
+const thrown: string[] = [];
+page.on('pageerror', (error: Error) => thrown.push(`threw: ${error.message}`));
+page.on('console', (message: { type(): string; text(): string }) => {
   if (message.type() === 'error') thrown.push(message.text());
 });
 
-const figure = async (which) => Number((await page.locator(which).textContent()).trim());
+const figure = async (which: string): Promise<number> =>
+  Number(String(await page.locator(which).textContent()).trim());
 
 /**
  * Press something and wait for the page to have drawn the answer.
@@ -70,12 +71,12 @@ const figure = async (which) => Number((await page.locator(which).textContent())
  * returns instantly, and every check after it reads the page too early — which
  * fails on a fast machine and passes on a slow one, or the other way round.
  */
-async function press(which) {
+async function press(which: string): Promise<void> {
   const before = await page.getAttribute('body', 'data-drawn');
 
   await page.locator(which).click();
 
-  await page.waitForFunction((was) => document.body.dataset.drawn !== was, before, { timeout: 20_000 });
+  await page.waitForFunction((was: string | null) => document.body.dataset.drawn !== was, before, { timeout: 20_000 });
 }
 
 try {

@@ -24,6 +24,29 @@
  */
 
 import { DatabaseSync } from 'node:sqlite';
+import type { SQLInputValue } from 'node:sqlite';
+
+/** A study as the catalogue holds it, with the path worked out by the join. */
+export type StudyRow = {
+  studyUid: string;
+  accession: string | null;
+  patientId: string;
+  patientName: string;
+  studyDate: string;
+  description: string;
+  path: string;
+};
+
+/** A study going in. `storageId` rather than a path: the path is derived. */
+export type NewStudy = {
+  studyUid: string;
+  accession: string | null;
+  patientId: string;
+  patientName: string;
+  studyDate: string;
+  description: string;
+  storageId: number;
+};
 
 const SCHEMA = `
   CREATE TABLE studies (
@@ -55,11 +78,26 @@ const SCHEMA = `
   CREATE INDEX ix_studies_accession ON studies (accession);
 `;
 
+export type Catalogue = ReturnType<typeof catalogue>;
+
 export function catalogue() {
   const db = new DatabaseSync(':memory:');
   db.exec(SCHEMA);
 
-  const run = (sql, params = []) => db.prepare(sql).all(...params);
+  /**
+   * A query, and the shape the caller says it returns.
+   *
+   * `node:sqlite` hands back `Record<string, SQLOutputValue>`, which is honest:
+   * it cannot know what a SELECT produces. The cast is the one place in this
+   * file where a claim is made that the compiler cannot check, so it is made
+   * once, here, rather than at every call site.
+   */
+  const run = <T>(sql: string, params: SQLInputValue[] = []): T[] =>
+    db.prepare(sql).all(...params) as unknown as T[];
+
+  /** The same, for a statement that returns exactly one row. */
+  const one = <T>(sql: string, params: SQLInputValue[] = []): T =>
+    db.prepare(sql).get(...params) as unknown as T;
 
   return {
     db,
@@ -70,17 +108,18 @@ export function catalogue() {
     },
 
     /** A filesystem the archive writes to. Returns its id. */
-    addFilesystem(root) {
-      return db.prepare('INSERT INTO filesystems (root) VALUES (?) RETURNING id').get(root).id;
+    addFilesystem(root: string): number {
+      return one<{ id: number }>('INSERT INTO filesystems (root) VALUES (?) RETURNING id', [root]).id;
     },
 
-    addStorage(filesystemId, folder) {
-      return db
-        .prepare('INSERT INTO storage (filesystem_id, folder) VALUES (?, ?) RETURNING id')
-        .get(filesystemId, folder).id;
+    addStorage(filesystemId: number, folder: string): number {
+      return one<{ id: number }>(
+        'INSERT INTO storage (filesystem_id, folder) VALUES (?, ?) RETURNING id',
+        [filesystemId, folder]
+      ).id;
     },
 
-    add(study) {
+    add(study: NewStudy): void {
       db.prepare(
         `INSERT INTO studies (study_uid, accession, patient_id, patient_name, study_date, description, storage_id)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -103,8 +142,8 @@ export function catalogue() {
      * correct, and is also the sort of thing that makes deleting from a
      * catalogue you do not own worth being careful about.
      */
-    olderThan(days, today) {
-      return run(
+    olderThan(days: number, today: string): StudyRow[] {
+      return run<StudyRow>(
         `SELECT
             s.study_uid   AS studyUid,
             s.accession   AS accession,
@@ -123,8 +162,11 @@ export function catalogue() {
     },
 
     /** One study, or undefined. Used to check what a run actually left behind. */
-    find(studyUid) {
-      return run('SELECT study_uid AS studyUid FROM studies WHERE study_uid = ?', [studyUid])[0];
+    find(studyUid: string): { studyUid: string } | undefined {
+      return run<{ studyUid: string }>(
+        'SELECT study_uid AS studyUid FROM studies WHERE study_uid = ?',
+        [studyUid]
+      )[0];
     },
 
     /**
@@ -135,14 +177,18 @@ export function catalogue() {
      * taking up the same space, and there is no longer anything in this database
      * that knows they are there.
      */
-    forget(studyUid) {
-      const before = db.prepare('SELECT COUNT(*) AS n FROM studies WHERE study_uid = ?').get(studyUid).n;
+    forget(studyUid: string): boolean {
+      const before = one<{ n: number }>(
+        'SELECT COUNT(*) AS n FROM studies WHERE study_uid = ?',
+        [studyUid]
+      ).n;
+
       db.prepare('DELETE FROM studies WHERE study_uid = ?').run(studyUid);
       return Number(before) > 0;
     },
 
     howMany() {
-      return Number(db.prepare('SELECT COUNT(*) AS n FROM studies').get().n);
+      return Number(one<{ n: number }>('SELECT COUNT(*) AS n FROM studies').n);
     },
   };
 }

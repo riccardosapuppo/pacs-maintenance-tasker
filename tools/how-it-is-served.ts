@@ -20,12 +20,12 @@
  * green having measured a stranger's process.
  */
 
-import { startTheService } from './with-the-service.mjs';
+import { startTheService } from './with-the-service.ts';
 
 let checks = 0;
 let bad = 0;
 
-function must(what, condition, detail) {
+function must(what: string, condition: boolean, detail?: unknown): void {
   checks += 1;
 
   if (condition) return console.log(`  ok    ${what}`);

@@ -63,6 +63,40 @@ export const WHY = {
   RECORDS_SAY_NOTHING: 'the record system has nothing about this study',
   RECORDS_UNREACHABLE: 'the record system could not be asked',
   NO_ACCESSION: 'the study carries no accession number to match on',
+} as const;
+
+/**
+ * The shapes, written down once.
+ *
+ * `WhatTheRecordsSaid` is a union rather than an object with optional fields,
+ * and that is the whole point of it. "Asked, and found nothing" and "could
+ * not ask" are different answers with different consequences, and a caller
+ * that destructures `rows` has to have decided which one it is holding first.
+ * The bug this project is about was written in a function that returned the
+ * rows and let an empty array speak for itself.
+ */
+export type WhyCode = keyof typeof WHY;
+
+export type Verdict = { mayGo: boolean; code: WhyCode; why: string };
+
+export type RecordLine = {
+  bookingWithdrawn: boolean;
+  lineWithdrawn: boolean;
+  examination: string;
+  reportedOn: string | null;
+};
+
+export type WhatTheRecordsSaid =
+  | { asked: true; rows: RecordLine[] }
+  | { asked: false; why: string };
+
+/** Everything the decision needs from a study, and nothing else. */
+export type DecidableStudy = { accession: string | null; studyDate: string };
+
+export type When = {
+  today: string;
+  keepForDays: number;
+  reportSettlesAfterDays: number;
 };
 
 /**
@@ -79,18 +113,12 @@ export const NOT_YET = '1900-01-01';
 const day = 24 * 60 * 60 * 1000;
 
 /** Whole days between two ISO dates, floored. */
-export function daysBetween(from, to) {
+export function daysBetween(from: string, to: string): number {
   return Math.floor((Date.parse(to) - Date.parse(from)) / day);
 }
 
-/**
- * @param study   {{ accession: string|null, studyDate: string }}
- * @param said    what the record system answered, from `records/ask.js`
- * @param when    {{ today: string, keepForDays: number, reportSettlesAfterDays: number }}
- * @returns {{ mayGo: boolean, why: string, code: string }}
- */
-export function decide(study, said, when) {
-  const answer = (mayGo, code) => ({ mayGo, code, why: WHY[code] });
+export function decide(study: DecidableStudy, said: WhatTheRecordsSaid, when: When): Verdict {
+  const answer = (mayGo: boolean, code: WhyCode): Verdict => ({ mayGo, code, why: WHY[code] });
 
   // ── the study's own age ──────────────────────────────────────────────────
   //
@@ -138,16 +166,29 @@ export function decide(study, said, when) {
   // in place long enough that nobody is still working from it. Every line,
   // not most: a booking with three examinations on it and two reports is a
   // booking somebody is still finishing.
-  const unreported = rows.filter((one) => !one.reportedOn);
-  if (unreported.length > 0) return answer(false, 'NOT_REPORTED');
-
-  const sentinel = rows.filter((one) => one.reportedOn.slice(0, 10) === NOT_YET);
-  if (sentinel.length > 0) return answer(false, 'REPORT_SENTINEL');
-
-  const tooRecent = rows.filter(
-    (one) => daysBetween(one.reportedOn, when.today) < when.reportSettlesAfterDays
+  // Narrowed rather than counted.
+  //
+  // This was three filters over `rows`, the first counting the ones with no
+  // report and the next two reading `reportedOn` as though the first had
+  // removed them. It was correct and it was correct by argument: nothing in
+  // the code said the rows reaching line three had a date on them, so anybody
+  // reordering the checks would have broken it silently.
+  //
+  // Keeping the reported rows in their own list says it once, and the two
+  // checks below read a `string` rather than a `string | null`.
+  const reported = rows.filter(
+    (one): one is RecordLine & { reportedOn: string } => one.reportedOn !== null && one.reportedOn !== ''
   );
-  if (tooRecent.length > 0) return answer(false, 'REPORT_TOO_RECENT');
+
+  if (reported.length !== rows.length) return answer(false, 'NOT_REPORTED');
+
+  if (reported.some((one) => one.reportedOn.slice(0, 10) === NOT_YET)) {
+    return answer(false, 'REPORT_SENTINEL');
+  }
+
+  if (reported.some((one) => daysBetween(one.reportedOn, when.today) < when.reportSettlesAfterDays)) {
+    return answer(false, 'REPORT_TOO_RECENT');
+  }
 
   return answer(true, 'REPORTED_AND_OLD');
 }
@@ -163,7 +204,7 @@ export function decide(study, said, when) {
  * It is exported from here, next to the real rule, so that the two cannot drift
  * apart into a comparison that is no longer comparing anything.
  */
-export function decideAsItWas(study, said, when) {
+export function decideAsItWas(study: DecidableStudy, said: WhatTheRecordsSaid, when: When): Verdict {
   if (said.asked === false) return { mayGo: false, code: 'RECORDS_UNREACHABLE', why: WHY.RECORDS_UNREACHABLE };
 
   if (!said.rows || said.rows.length === 0) {

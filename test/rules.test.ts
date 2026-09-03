@@ -11,13 +11,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { decide, decideAsItWas, daysBetween, NOT_YET, WHY } from '../src/decide/rules.js';
+import { decide, decideAsItWas, daysBetween, NOT_YET, WHY } from '../src/decide/rules.ts';
+import type { DecidableStudy, RecordLine, WhatTheRecordsSaid } from '../src/decide/rules.ts';
 
 const WHEN = { today: '2026-09-03', keepForDays: 40, reportSettlesAfterDays: 40 };
 
-const study = (over) => ({ accession: 'ACC1', studyDate: '2025-01-01', ...over });
-const said = (rows) => ({ asked: true, rows });
-const line = (over) => ({ bookingWithdrawn: false, lineWithdrawn: false, reportedOn: '2025-01-02', ...over });
+const study = (over: Partial<DecidableStudy> = {}): DecidableStudy => ({
+  accession: 'ACC1',
+  studyDate: '2025-01-01',
+  ...over,
+});
+
+const said = (rows: RecordLine[]): WhatTheRecordsSaid => ({ asked: true, rows });
+
+const line = (over: Partial<RecordLine> = {}): RecordLine => ({
+  bookingWithdrawn: false,
+  lineWithdrawn: false,
+  examination: 'CT ABDOMEN',
+  reportedOn: '2025-01-02',
+  ...over,
+});
 
 test('days are whole days, and the direction is from the past to today', () => {
   assert.equal(daysBetween('2026-09-01', '2026-09-03'), 2);
@@ -35,7 +48,7 @@ test('the window is checked before the records are asked at all', () => {
   // Not an optimisation. A study inside the window cannot be deleted whatever
   // the record system says, so asking is a question whose answer changes
   // nothing — and every question across that boundary can fail.
-  const verdict = decide(study({ studyDate: '2026-08-20' }), { asked: false }, WHEN);
+  const verdict = decide(study({ studyDate: '2026-08-20' }), { asked: false, why: 'no answer' }, WHEN);
 
   assert.equal(verdict.code, 'TOO_YOUNG', 'not RECORDS_UNREACHABLE');
 });
@@ -119,7 +132,16 @@ test('SILENCE IS NOT PERMISSION: no rows means no, and says so', () => {
   // The line this whole project is about. The version this was rebuilt from
   // returned "delete it" here, not by decision but because the loop over the
   // rows found nothing to loop over and execution reached the last line.
-  for (const nothing of [said([]), { asked: true }, { asked: true, rows: null }]) {
+  // The last two are shapes the type says cannot happen, cast on purpose.
+  //
+  // `said` comes from a database driver at a boundary the compiler does not
+  // reach, and the rule guards against a missing `rows` because a driver that
+  // returns `undefined` where it promised an array is a Tuesday. The cast is
+  // the test saying "this arrives from outside", not the test working around
+  // the type.
+  const shapes = [said([]), { asked: true }, { asked: true, rows: null }] as unknown as WhatTheRecordsSaid[];
+
+  for (const nothing of shapes) {
     const verdict = decide(study(), nothing, WHEN);
 
     assert.equal(verdict.mayGo, false, JSON.stringify(nothing));
@@ -153,8 +175,8 @@ test('an unreachable record system is refused by both rules', () => {
   // The safe default that the original DID have. Worth a test of its own,
   // because the point of this project is that it had this one and not the other
   // — the loud failure was guarded and the quiet one was not.
-  assert.equal(decideAsItWas(study(), { asked: false }, WHEN).mayGo, false);
-  assert.equal(decide(study(), { asked: false }, WHEN).mayGo, false);
+  assert.equal(decideAsItWas(study(), { asked: false, why: 'no answer' }, WHEN).mayGo, false);
+  assert.equal(decide(study(), { asked: false, why: 'no answer' }, WHEN).mayGo, false);
 });
 
 test('every reason has words, and every answer carries one', () => {

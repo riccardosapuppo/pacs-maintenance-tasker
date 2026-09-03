@@ -32,14 +32,22 @@ import path from 'node:path';
 /** A few files that look like a study, so a folder is not an empty folder. */
 const SLICES = 6;
 
-export function files({ root } = {}) {
+/** What a removal did. Three answers, because "already gone" is its own. */
+export type Removal = 'gone' | 'binned' | 'was not there';
+
+/** True when this removal should throw. Used to produce a half-done state. */
+export type FailWhen = ((where: string) => boolean) | null;
+
+export type FileStore = ReturnType<typeof files>;
+
+export function files({ root }: { root?: string } = {}) {
   const home = root ?? fs.mkdtempSync(path.join(os.tmpdir(), 'pacs-tasker-'));
   const bin = path.join(home, '.bin');
 
   fs.mkdirSync(home, { recursive: true });
 
   /** A predicate over the path; when it returns true, removal throws. */
-  let failWhen = null;
+  let failWhen: FailWhen = null;
 
   let written = 0;
   let removed = 0;
@@ -61,7 +69,7 @@ export function files({ root } = {}) {
    * caught it -- both orders left the same 246 orphans, which is impossible
    * if either of them had removed a file.
    */
-  const inside = (where) => {
+  const inside = (where: string): string => {
     const full = path.resolve(path.isAbsolute(where) ? where : path.join(home, where));
 
     // Checked here rather than trusted from the catalogue. The catalogue
@@ -75,14 +83,15 @@ export function files({ root } = {}) {
   };
 
   /** The same path as the disk lists it: relative to the root, forward slashes. */
-  const asListed = (where) => inside(where).slice(home.length + 1).split(path.sep).join('/');
+  const asListed = (where: string): string =>
+    inside(where).slice(home.length + 1).split(path.sep).join('/');
 
   return {
     home,
     bin,
 
     /** Write a study's folder, with a handful of slices in it. */
-    put(where, { slices = SLICES } = {}) {
+    put(where: string, { slices = SLICES }: { slices?: number } = {}): string {
       const full = inside(where);
       fs.mkdirSync(full, { recursive: true });
 
@@ -94,15 +103,15 @@ export function files({ root } = {}) {
       return full;
     },
 
-    exists(where) {
+    exists(where: string): boolean {
       return fs.existsSync(inside(where));
     },
 
     /** Every study folder currently on the disk, as catalogue-relative paths. */
-    onDisk() {
-      const out = [];
+    onDisk(): string[] {
+      const out: string[] = [];
 
-      const walk = (dir, prefix) => {
+      const walk = (dir: string, prefix: string): void => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
           if (!entry.isDirectory() || entry.name === '.bin') continue;
 
@@ -122,7 +131,7 @@ export function files({ root } = {}) {
       return out.sort();
     },
 
-    failWhen(predicate) {
+    failWhen(predicate: FailWhen): void {
       failWhen = predicate;
     },
 
@@ -134,7 +143,7 @@ export function files({ root } = {}) {
      *   somebody can walk back.
      * @returns {'gone'|'binned'|'was not there'}
      */
-    remove(where, { toBin = true } = {}) {
+    remove(where: string, { toBin = true }: { toBin?: boolean } = {}): Removal {
       const full = inside(where);
 
       if (failWhen && failWhen(where)) {
@@ -160,12 +169,12 @@ export function files({ root } = {}) {
       return 'gone';
     },
 
-    counts() {
+    counts(): { written: number; removed: number; binned: number } {
       return { written, removed, binned };
     },
 
     /** Take the scratch directory away. */
-    clear() {
+    clear(): void {
       fs.rmSync(home, { recursive: true, force: true });
     },
   };

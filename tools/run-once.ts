@@ -15,16 +15,17 @@
  * so only at the top is a report somebody scrolls past.
  */
 
-import { corpus, closeCorpus, WHEN } from '../src/measure/corpus.js';
-import { runOnce, POINTER_FIRST, FILES_FIRST } from '../src/decide/run.js';
-import { WHY } from '../src/decide/rules.js';
+import { corpus, closeCorpus, WHEN } from '../src/measure/corpus.ts';
+import { runOnce, POINTER_FIRST, FILES_FIRST } from '../src/decide/run.ts';
+import { WHY } from '../src/decide/rules.ts';
+import type { WhyCode } from '../src/decide/rules.ts';
 
 const forReal = process.argv.includes('--for-real');
 const toBin = !process.argv.includes('--permanent');
 const order = process.argv.includes('--catalogue-first') ? POINTER_FIRST : FILES_FIRST;
 
-const pad = (text, width) => String(text) + ' '.repeat(Math.max(0, width - String(text).length));
-const num = (n, width = 5) => ' '.repeat(Math.max(0, width - String(n).length)) + String(n);
+const pad = (text: unknown, width: number): string => String(text) + ' '.repeat(Math.max(0, width - String(text).length));
+const num = (n: unknown, width = 5): string => ' '.repeat(Math.max(0, width - String(n).length)) + String(n);
 
 const world = corpus({ onDisk: true });
 
@@ -50,7 +51,12 @@ console.log(`      chosen           ${num(report.chose)}`);
 console.log(`      refused          ${num(report.refusedCount)}`);
 console.log('');
 
-for (const [code, n] of Object.entries(report.refusedBecause).sort((a, b) => b[1] - a[1])) {
+// `Object.entries` widens the key to `string`, and the reasons are a closed
+// set. Narrowing it back is the one line that keeps the lookup honest: a code
+// with no words is a code somebody added and did not name.
+const refusals = Object.entries(report.refusedBecause) as Array<[WhyCode, number]>;
+
+for (const [code, n] of refusals.sort((a, b) => b[1] - a[1])) {
   console.log(`        ${num(n)}  ${WHY[code] ?? code}`);
 }
 

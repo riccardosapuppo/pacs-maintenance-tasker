@@ -47,7 +47,49 @@
  * measurement can produce both and count what is left.
  */
 
-import { decide } from './rules.js';
+import { decide } from './rules.ts';
+import type { WhatTheRecordsSaid, When, WhyCode } from './rules.ts';
+import type { StudyRow } from '../archive/catalogue.ts';
+import type { Catalogue } from '../archive/catalogue.ts';
+import type { RecordSystem } from '../records/system.ts';
+import type { FileStore, Removal } from '../files/store.ts';
+
+/** One study, decided. The reason travels with it, always. */
+export type DecisionRecord = {
+  study: StudyRow;
+  said: WhatTheRecordsSaid;
+  mayGo: boolean;
+  code: WhyCode;
+  why: string;
+};
+
+/** What actually happened to one study, in whichever order it was tried. */
+export type Outcome = {
+  studyUid: string;
+  path: string;
+  files: Removal | null;
+  catalogue: 'forgotten' | 'was not there' | null;
+  trouble: string | null;
+};
+
+export type Order = typeof FILES_FIRST | typeof POINTER_FIRST;
+
+export type Stores = { archive: Catalogue; recordSystem: RecordSystem; store: FileStore };
+
+export type Report = {
+  when: When;
+  forReal: boolean;
+  order: Order;
+  toBin: boolean;
+  considered: number;
+  chose: number;
+  refusedCount: number;
+  refusedBecause: Partial<Record<WhyCode, number>>;
+  decisions: DecisionRecord[];
+  chosenUids: string[];
+  did: Outcome[];
+  trouble: Outcome[];
+};
 
 export const FILES_FIRST = 'files first, then the catalogue';
 export const POINTER_FIRST = 'the catalogue first, then the files';
@@ -58,14 +100,16 @@ export const POINTER_FIRST = 'the catalogue first, then the files';
  * Reads. Does not write. Returns the same array whether or not anybody intends
  * to act on it.
  */
-export function look(archive, recordSystem, when) {
+export function look(archive: Catalogue, recordSystem: RecordSystem, when: When): DecisionRecord[] {
   const considered = archive.olderThan(when.keepForDays, when.today);
 
-  return considered.map((study) => {
+  return considered.map((study): DecisionRecord => {
     // Asked once per study, and the answer is kept on the decision. A run that
     // asked again while acting would be a run whose two halves could disagree
     // about a record that changed in between.
-    const said = study.accession ? recordSystem.ask(study.accession) : { asked: true, rows: [] };
+    const said: WhatTheRecordsSaid = study.accession
+      ? recordSystem.ask(study.accession)
+      : { asked: true, rows: [] };
     const verdict = decide(study, said, when);
 
     return {
@@ -85,14 +129,22 @@ export function look(archive, recordSystem, when) {
  * @param order      FILES_FIRST or POINTER_FIRST
  * @param toBin      move the files aside rather than deleting them
  */
-export function carryOut(decisions, { archive, store, order = FILES_FIRST, toBin = true }) {
-  const done = [];
+export function carryOut(
+  decisions: DecisionRecord[],
+  {
+    archive,
+    store,
+    order = FILES_FIRST,
+    toBin = true,
+  }: { archive: Catalogue; store: FileStore; order?: Order; toBin?: boolean }
+): Outcome[] {
+  const done: Outcome[] = [];
 
   for (const decision of decisions) {
     if (!decision.mayGo) continue;
 
     const { studyUid, path } = decision.study;
-    const outcome = { studyUid, path, files: null, catalogue: null, trouble: null };
+    const outcome: Outcome = { studyUid, path, files: null, catalogue: null, trouble: null };
 
     const removeFiles = () => {
       outcome.files = store.remove(path, { toBin });
@@ -112,7 +164,7 @@ export function carryOut(decisions, { archive, store, order = FILES_FIRST, toBin
       // up the disk, and the half-finished state is recorded rather than
       // retried here -- the next run is the retry, and it is the retry because
       // of the order the steps are in.
-      outcome.trouble = error.message;
+      outcome.trouble = error instanceof Error ? error.message : String(error);
     }
 
     done.push(outcome);
@@ -127,13 +179,21 @@ export function carryOut(decisions, { archive, store, order = FILES_FIRST, toBin
  * `forReal` is the only thing that changes what happens, and it changes it in
  * exactly one place: whether `carryOut` is called.
  */
-export function runOnce({ archive, recordSystem, store }, when, { forReal = false, order = FILES_FIRST, toBin = true } = {}) {
+export function runOnce(
+  { archive, recordSystem, store }: Stores,
+  when: When,
+  {
+    forReal = false,
+    order = FILES_FIRST,
+    toBin = true,
+  }: { forReal?: boolean; order?: Order; toBin?: boolean } = {}
+): Report {
   const decisions = look(archive, recordSystem, when);
 
   const chosen = decisions.filter((one) => one.mayGo);
   const refused = decisions.filter((one) => !one.mayGo);
 
-  const byReason = {};
+  const byReason: Partial<Record<WhyCode, number>> = {};
   for (const one of refused) byReason[one.code] = (byReason[one.code] ?? 0) + 1;
 
   const did = forReal ? carryOut(decisions, { archive, store, order, toBin }) : [];

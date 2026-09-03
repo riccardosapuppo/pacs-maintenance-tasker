@@ -15,12 +15,59 @@
  * sentence in a README.
  */
 
-import { corpus, closeCorpus, WHEN } from './corpus.js';
-import { decide, decideAsItWas } from '../decide/rules.js';
-import { look, runOnce, FILES_FIRST, POINTER_FIRST } from '../decide/run.js';
+import { corpus, closeCorpus, WHEN } from './corpus.ts';
+import { decide, decideAsItWas } from '../decide/rules.ts';
+import { look, runOnce, FILES_FIRST, POINTER_FIRST } from '../decide/run.ts';
+import type { Order } from '../decide/run.ts';
+import type { FileStore } from '../files/store.ts';
+
+/**
+ * A claim, and the shape of ITS result.
+ *
+ * Generic on purpose. The three results have nothing in common beyond `holds`,
+ * and `everyClaim` used to return them as an array — which gave every element
+ * the union of all three, so reading `result.orphans` off the ordering claim was
+ * an error even though it is the only place that field exists. A tuple keeps
+ * each one its own type, and the tests and the page read them directly.
+ */
+export type Claim<T> = { says: string; matters: string; result: T };
+
+export type DryRunResult = {
+  holds: boolean;
+  chose: number;
+  deleted: number;
+  theOtherWayWouldHaveSaid: number;
+  quietlyMissing: number;
+  catalogueLeft: number;
+};
+
+export type SilenceResult = {
+  holds: boolean;
+  refusedForNoAccession: number;
+  considered: number;
+  refusedForSilence: number;
+  wouldHaveGone: number;
+  examples: Array<{ accession: string | null; patientName: string; studyDate: string; why: string }>;
+};
+
+export type OrderResult = {
+  holds: boolean;
+  filesFirst: WhatWasLeft;
+  pointerFirst: WhatWasLeft;
+  costOfTheOtherOrder: number;
+};
+
+/** What one ordering left behind. */
+export type WhatWasLeft = {
+  troubleFirstTime: number;
+  troubleSecondTime: number;
+  rowsLeft: number;
+  foldersLeft: number;
+  orphans: number;
+};
 
 /** Catalogue paths are absolute; the disk lists them relative to its root. */
-const relative = (store, path) => path.slice(store.home.length + 1);
+const relative = (store: FileStore, path: string): string => path.slice(store.home.length + 1);
 
 // ── 1 ───────────────────────────────────────────────────────────────────────
 
@@ -40,7 +87,7 @@ const relative = (store, path) => path.slice(store.home.length + 1);
  * trying to be helpful, by not promising to delete something that is not there
  * — and it is wrong, because the real run removes the catalogue row either way.
  */
-export function dryRunTellsTheTruth() {
+export function dryRunTellsTheTruth(): DryRunResult {
   const looking = corpus({ onDisk: true });
   const doing = corpus({ onDisk: true });
 
@@ -81,12 +128,17 @@ export function dryRunTellsTheTruth() {
  * patients whose images would have gone, on a run where nothing errored, no
  * exception was thrown, and the log would have read exactly like a good day.
  */
-export function silenceIsNotPermission() {
+export function silenceIsNotPermission(): SilenceResult {
   const world = corpus();
   const decisions = look(world.archive, world.recordSystem, WHEN);
 
   let wouldHaveGone = 0;
-  const examples = [];
+  const examples: Array<{
+    accession: string | null;
+    patientName: string;
+    studyDate: string;
+    why: string;
+  }> = [];
 
   for (const one of decisions) {
     const asItWas = decideAsItWas(one.study, one.said, WHEN);
@@ -146,10 +198,10 @@ export function silenceIsNotPermission() {
  * by name. They are the disk space this job exists to reclaim, permanently
  * unreclaimable, and there is no error anywhere.
  */
-export function theOrderThatCanBeFinished() {
-  const outcome = {};
+export function theOrderThatCanBeFinished(): OrderResult {
+  const outcome: Partial<Record<Order, WhatWasLeft>> = {};
 
-  for (const order of [FILES_FIRST, POINTER_FIRST]) {
+  for (const order of [FILES_FIRST, POINTER_FIRST] as const) {
     const world = corpus({ onDisk: true });
 
     // One in ten refuses. Deterministic: the same studies every time.
@@ -171,7 +223,7 @@ export function theOrderThatCanBeFinished() {
 
     const pointedAt = new Set(
       world.archive
-        .run('SELECT s.study_uid AS uid FROM studies s')
+        .run<{ uid: string }>('SELECT s.study_uid AS uid FROM studies s')
         .map((row) => `partition-1/${row.uid}`)
     );
 
@@ -186,8 +238,8 @@ export function theOrderThatCanBeFinished() {
     closeCorpus(world);
   }
 
-  const safe = outcome[FILES_FIRST];
-  const other = outcome[POINTER_FIRST];
+  const safe = outcome[FILES_FIRST] as WhatWasLeft;
+  const other = outcome[POINTER_FIRST] as WhatWasLeft;
 
   return {
     holds: safe.orphans === 0 && other.orphans > 0,
@@ -199,7 +251,7 @@ export function theOrderThatCanBeFinished() {
 
 // ── all of them ─────────────────────────────────────────────────────────────
 
-export function everyClaim() {
+export function everyClaim(): [Claim<DryRunResult>, Claim<SilenceResult>, Claim<OrderResult>] {
   return [
     {
       says: 'A dry run and a real run choose the same studies.',

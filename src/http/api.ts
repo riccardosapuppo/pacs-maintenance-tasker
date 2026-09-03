@@ -27,18 +27,32 @@
 
 import fs from 'node:fs';
 import http from 'node:http';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { corpus, closeCorpus, WHEN, TODAY } from '../measure/corpus.js';
-import { runOnce, FILES_FIRST, POINTER_FIRST } from '../decide/run.js';
-import { WHY } from '../decide/rules.js';
-import { everyClaim } from '../measure/claims.js';
+import { corpus, closeCorpus, WHEN, TODAY } from '../measure/corpus.ts';
+import { runOnce, FILES_FIRST, POINTER_FIRST } from '../decide/run.ts';
+import type { Order } from '../decide/run.ts';
+
+/** What a caller may ask for. Everything optional; every default is the safe one. */
+export type RunRequest = {
+  forReal?: unknown;
+  toBin?: unknown;
+  catalogueFirst?: unknown;
+  diskRefuses?: unknown;
+  keepForDays?: unknown;
+  reportSettlesAfterDays?: unknown;
+};
+
+export type Log = (level: string, message: string, detail?: Record<string, unknown>) => void;
+import { WHY } from '../decide/rules.ts';
+import { everyClaim } from '../measure/claims.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(here, '..', '..', 'public');
 
-const TYPES = {
+const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -57,12 +71,12 @@ function theClaims() {
   return everyClaim().map((one) => ({ says: one.says, matters: one.matters, result: one.result }));
 }
 
-export function service({ log = () => {} } = {}) {
+export function service({ log = () => {} }: { log?: Log } = {}) {
   const claims = theClaims();
 
   /** The archive the console works on. Rebuilt whenever somebody asks. */
   let world = corpus({ onDisk: true });
-  let history = [];
+  let history: Array<{ chose: number; order: Order; toBin: boolean; trouble: number }> = [];
 
   const rebuild = () => {
     closeCorpus(world);
@@ -71,14 +85,16 @@ export function service({ log = () => {} } = {}) {
   };
 
   const server = http.createServer((request, response) => {
-    const at = new URL(request.url, 'http://127.0.0.1');
+    const at = new URL(request.url ?? '/', 'http://127.0.0.1');
 
     try {
       if (at.pathname.startsWith('/api/')) return api(at, request, response);
       return serve(at, response);
     } catch (error) {
-      log('error', 'the request could not be handled', { where: at.pathname, why: error.message });
-      json(response, 500, { error: error.message });
+      const why = error instanceof Error ? error.message : String(error);
+
+      log('error', 'the request could not be handled', { where: at.pathname, why });
+      json(response, 500, { error: why });
     }
   });
 
@@ -86,7 +102,7 @@ export function service({ log = () => {} } = {}) {
 
   // -------------------------------------------------------------------------
 
-  function api(at, request, response) {
+  function api(at: URL, request: IncomingMessage, response: ServerResponse): void {
     if (at.pathname === '/api/health') {
       return json(response, 200, {
         ok: true,
@@ -108,7 +124,7 @@ export function service({ log = () => {} } = {}) {
       return json(response, 405, { error: 'that route wants a POST', you_used: request.method });
     }
 
-    return body(request, (sent, why) => {
+    return body(request, (sent: RunRequest | null, why?: string) => {
       if (why) return json(response, 400, { error: why });
 
       if (at.pathname === '/api/reset') {
@@ -221,7 +237,9 @@ export function service({ log = () => {} } = {}) {
     const folders = world.store.onDisk();
 
     const pointedAt = new Set(
-      world.archive.run('SELECT study_uid AS uid FROM studies').map((row) => `partition-1/${row.uid}`)
+      world.archive
+        .run<{ uid: string }>('SELECT study_uid AS uid FROM studies')
+        .map((row) => `partition-1/${row.uid}`)
     );
 
     const orphans = folders.filter((one) => !pointedAt.has(one));
@@ -240,7 +258,7 @@ export function service({ log = () => {} } = {}) {
 }
 
 /** A whole number in a sane range, or the fallback. A page sends strings. */
-function whole(value, fallback) {
+function whole(value: unknown, fallback: number): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0 || n > 4000) return fallback;
   return Math.floor(n);
@@ -252,11 +270,11 @@ function whole(value, fallback) {
  * A run request is a few hundred bytes. A server that buffers whatever arrives
  * is a server one request can stop.
  */
-function body(request, then) {
-  const parts = [];
+function body(request: IncomingMessage, then: (sent: RunRequest | null, why?: string) => void): void {
+  const parts: Buffer[] = [];
   let size = 0;
 
-  request.on('data', (chunk) => {
+  request.on('data', (chunk: Buffer) => {
     size += chunk.length;
 
     if (size > 100_000) {
@@ -271,9 +289,10 @@ function body(request, then) {
     if (size > 100_000) return;
 
     try {
-      then(parts.length ? JSON.parse(Buffer.concat(parts).toString('utf8')) : {});
+      then(parts.length ? (JSON.parse(Buffer.concat(parts).toString('utf8')) as RunRequest) : {});
     } catch (error) {
-      then(null, `that is not JSON: ${error.message}`);
+      const why = error instanceof Error ? error.message : String(error);
+      then(null, `that is not JSON: ${why}`);
     }
   });
 }
@@ -284,7 +303,7 @@ function body(request, then) {
  * `no-store` on everything: these files carry no hash in their names, so a
  * cached copy is one that never updates, and a browser remembers per origin.
  */
-function serve(at, response) {
+function serve(at: URL, response: ServerResponse): void {
   const name = at.pathname === '/' ? 'index.html' : at.pathname.slice(1);
   const file = path.join(PUBLIC, name);
 
@@ -304,7 +323,7 @@ function serve(at, response) {
   response.end(fs.readFileSync(file));
 }
 
-function json(response, status, sent) {
+function json(response: ServerResponse, status: number, sent: unknown): void {
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',

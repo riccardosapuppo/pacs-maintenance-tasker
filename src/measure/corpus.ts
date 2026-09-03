@@ -32,9 +32,21 @@
  * deleted, and `npm run measure` reports that count as the price of the bug.
  */
 
-import { catalogue } from '../archive/catalogue.js';
-import { records } from '../records/system.js';
-import { files } from '../files/store.js';
+import { catalogue } from '../archive/catalogue.ts';
+import { records } from '../records/system.ts';
+import { files } from '../files/store.ts';
+import type { FileStore } from '../files/store.ts';
+import type { Catalogue } from '../archive/catalogue.ts';
+import type { RecordSystem } from '../records/system.ts';
+import type { When } from '../decide/rules.ts';
+
+export type World = {
+  archive: Catalogue;
+  recordSystem: RecordSystem;
+  store: FileStore;
+  when: When;
+  plan: typeof PLAN;
+};
 
 export const TODAY = '2026-09-03';
 
@@ -49,7 +61,7 @@ export const WHEN = {
 const day = 24 * 60 * 60 * 1000;
 
 /** An ISO date `n` days before today. Deterministic: no `new Date()` anywhere. */
-export function daysAgo(n) {
+export function daysAgo(n: number): string {
   return new Date(Date.parse(TODAY) - n * day).toISOString().slice(0, 10);
 }
 
@@ -101,13 +113,19 @@ export const HOW_MANY = PLAN.reduce((n, one) => n + one.howMany, 0);
 /**
  * Build the three stores, filled and consistent with each other.
  *
- * @param onDisk  write the files as well. The measurement's first two claims
- *   are about deciding and do not need a disk; the third one does.
+ * @param onDisk  write the study folders as well. The first two claims are
+ *   about deciding and never touch a disk; the third one does.
+ *
+ * The store itself is always made, even when nothing is written into it. It was
+ * `null` in the not-on-disk case for a while and every caller downstream had to
+ * carry the possibility -- a run needs a store, so each of them either checked
+ * for a null that could not happen or asserted it away. An empty scratch
+ * directory costs nothing and removes the question.
  */
-export function corpus({ onDisk = false } = {}) {
+export function corpus({ onDisk = false }: { onDisk?: boolean } = {}): World {
   const archive = catalogue();
   const recordSystem = records();
-  const store = onDisk ? files() : null;
+  const store = files();
 
   const filesystem = archive.addFilesystem(onDisk ? store.home : '/archive');
   const storage = archive.addStorage(filesystem, 'partition-1');
@@ -139,13 +157,13 @@ export function corpus({ onDisk = false } = {}) {
       if (kind === 'nothing in the records' || kind === 'no accession number') continue;
 
       const bookingId = recordSystem.addBooking({
-        code: accession,
+        code: accession as string,
         patientId,
         bookedFor: studyDate,
         withdrawn: kind === 'booking withdrawn',
       });
 
-      const line = (extra) =>
+      const line = (extra: { withdrawn?: boolean; reportedOn?: string | null }) =>
         recordSystem.addLine({ bookingId, examination: description, ...extra });
 
       if (kind === 'booking withdrawn') {
@@ -173,8 +191,8 @@ export function corpus({ onDisk = false } = {}) {
   return { archive, recordSystem, store, when: WHEN, plan: PLAN };
 }
 
-export function closeCorpus({ archive, recordSystem, store }) {
+export function closeCorpus({ archive, recordSystem, store }: World): void {
   archive.close();
   recordSystem.close();
-  if (store) store.clear();
+  store.clear();
 }

@@ -27,6 +27,23 @@
  */
 
 import { DatabaseSync } from 'node:sqlite';
+import type { SQLInputValue } from 'node:sqlite';
+
+import type { RecordLine, WhatTheRecordsSaid } from '../decide/rules.ts';
+
+export type NewBooking = {
+  code: string;
+  patientId: string;
+  bookedFor: string;
+  withdrawn?: boolean;
+};
+
+export type NewLine = {
+  bookingId: number;
+  examination: string;
+  withdrawn?: boolean;
+  reportedOn?: string | null;
+};
 
 const SCHEMA = `
   CREATE TABLE bookings (
@@ -56,6 +73,8 @@ const SCHEMA = `
   CREATE INDEX ix_lines_booking ON lines (booking_id);
 `;
 
+export type RecordSystem = ReturnType<typeof records>;
+
 export function records() {
   const db = new DatabaseSync(':memory:');
   db.exec(SCHEMA);
@@ -77,27 +96,29 @@ export function records() {
       db.close();
     },
 
-    stopAnswering() {
+    stopAnswering(): void {
       answering = false;
     },
 
-    startAnswering() {
+    startAnswering(): void {
       answering = true;
     },
 
-    timesAsked() {
+    timesAsked(): number {
       return asked;
     },
 
-    addBooking({ code, patientId, bookedFor, withdrawn = false }) {
-      return db
-        .prepare(
-          'INSERT INTO bookings (code, patient_id, booked_for, withdrawn) VALUES (?, ?, ?, ?) RETURNING id'
-        )
-        .get(code, patientId, bookedFor, withdrawn ? 1 : 0).id;
+    addBooking({ code, patientId, bookedFor, withdrawn = false }: NewBooking): number {
+      return (
+        db
+          .prepare(
+            'INSERT INTO bookings (code, patient_id, booked_for, withdrawn) VALUES (?, ?, ?, ?) RETURNING id'
+          )
+          .get(code, patientId, bookedFor, withdrawn ? 1 : 0) as unknown as { id: number }
+      ).id;
     },
 
-    addLine({ bookingId, examination, withdrawn = false, reportedOn = null }) {
+    addLine({ bookingId, examination, withdrawn = false, reportedOn = null }: NewLine): void {
       db.prepare(
         'INSERT INTO lines (booking_id, examination, withdrawn, reported_on) VALUES (?, ?, ?, ?)'
       ).run(bookingId, examination, withdrawn ? 1 : 0, reportedOn);
@@ -110,14 +131,14 @@ export function records() {
      * "nothing to worry about", because "nothing" and "could not ask" are
      * different fields and neither of them is an empty array by default.
      */
-    ask(accession) {
+    ask(accession: string): WhatTheRecordsSaid {
       asked += 1;
 
       if (!answering) {
         return { asked: false, why: 'the record system did not answer' };
       }
 
-      const rows = db
+      const rows = (db
         .prepare(
           `SELECT
               b.withdrawn   AS bookingWithdrawn,
@@ -129,11 +150,16 @@ export function records() {
            WHERE b.code = ?
            ORDER BY l.id`
         )
-        .all(accession);
+        .all(accession) as unknown as Array<{
+        bookingWithdrawn: number;
+        lineWithdrawn: number;
+        examination: string;
+        reportedOn: string | null;
+      }>);
 
       return {
         asked: true,
-        rows: rows.map((one) => ({
+        rows: rows.map((one): RecordLine => ({
           bookingWithdrawn: Number(one.bookingWithdrawn) === 1,
           lineWithdrawn: Number(one.lineWithdrawn) === 1,
           examination: one.examination,
@@ -142,8 +168,8 @@ export function records() {
       };
     },
 
-    run(sql, params = []) {
-      return db.prepare(sql).all(...params);
+    run<T>(sql: string, params: SQLInputValue[] = []): T[] {
+      return db.prepare(sql).all(...params) as unknown as T[];
     },
   };
 }

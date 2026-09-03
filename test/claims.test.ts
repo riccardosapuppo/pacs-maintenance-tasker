@@ -17,13 +17,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { corpus, closeCorpus, WHEN, HOW_MANY, TODAY } from '../src/measure/corpus.js';
-import { look, FILES_FIRST, POINTER_FIRST } from '../src/decide/run.js';
-import { everyClaim } from '../src/measure/claims.js';
+import { corpus, closeCorpus, WHEN, HOW_MANY, TODAY } from '../src/measure/corpus.ts';
+import { look, FILES_FIRST, POINTER_FIRST } from '../src/decide/run.ts';
+import type { WhyCode } from '../src/decide/rules.ts';
+import type { World } from '../src/measure/corpus.ts';
+import { everyClaim } from '../src/measure/claims.ts';
 
 /** Computed once: each claim builds several archives on disk. */
 const claims = everyClaim();
-const [dry, silence, order] = claims.map((one) => one.result);
+
+// Destructured off the tuple rather than through `.map`, which would flatten
+// three different result shapes into one union and make every field an error.
+const [dryClaim, silenceClaim, orderClaim] = claims;
+const dry = dryClaim.result;
+const silence = silenceClaim.result;
+const order = orderClaim.result;
 
 test('all three claims hold', () => {
   const broken = claims.filter((one) => !one.result.holds).map((one) => one.says);
@@ -44,7 +52,7 @@ test('the corpus really contains every awkward case', () => {
   const world = corpus();
   const decisions = look(world.archive, world.recordSystem, WHEN);
 
-  const seen = {};
+  const seen: Partial<Record<WhyCode, number>> = {};
   for (const one of decisions) seen[one.code] = (seen[one.code] ?? 0) + 1;
 
   for (const code of [
@@ -56,7 +64,7 @@ test('the corpus really contains every awkward case', () => {
     'REPORTED_AND_OLD',
     'BOOKING_WITHDRAWN',
     'EVERY_LINE_WITHDRAWN',
-  ]) {
+  ] as const satisfies readonly WhyCode[]) {
     assert.ok((seen[code] ?? 0) > 0, `the corpus has no ${code} in it`);
   }
 
@@ -70,7 +78,7 @@ test('the corpus is the same corpus on every machine and every run', () => {
   const one = corpus();
   const two = corpus();
 
-  const rows = (world) => world.archive.olderThan(WHEN.keepForDays, WHEN.today);
+  const rows = (world: World) => world.archive.olderThan(WHEN.keepForDays, WHEN.today);
 
   assert.deepEqual(rows(one), rows(two));
   assert.equal(one.archive.howMany(), HOW_MANY);
@@ -84,7 +92,7 @@ test('the corpus is built without reading the clock', () => {
   // `new Date()` with no argument, or Date.now(), would make the measurement
   // give a different answer tomorrow — and the day it crossed a boundary,
   // somebody would be debugging the archive instead of the fixture.
-  const source = readFileSync(new URL('../src/measure/corpus.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/measure/corpus.ts', import.meta.url), 'utf8');
   const code = source
     .split('\n')
     .map((one) => one.trim())
