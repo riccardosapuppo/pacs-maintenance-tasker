@@ -1,0 +1,607 @@
+/**
+ * The console.
+ *
+ * A job that deletes things should not look playful, and it should not look
+ * like a warning label either — nobody reads a page that shouts. So: warm paper,
+ * a deep plum ink, generous space, and exactly three colours that mean
+ * something.
+ *
+ *   `--accent`   this is the job doing its work: chosen, deleted, acted on
+ *   `--held`     held back. Not an error, and the most common outcome
+ *   `--danger`   something that cannot be undone, or already has not been
+ *
+ * `--danger` appears on two controls and one figure. If it were on six things
+ * it would mean nothing, and the orphan count is the one number on this page
+ * that should make somebody stop.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --paper: #f4f1ee;
+  --paper-sunk: #eae5e0;
+  --ink: #241f2e;
+  --ink-soft: #5d5468;
+  --ink-faint: #948b9e;
+  --line: #ddd5cf;
+  --accent: #b06a1c;
+  --accent-wash: #f7e9d8;
+  --held: #4a6b57;
+  --held-wash: #e3ece5;
+  --danger: #a32e2e;
+  --danger-wash: #f7e0e0;
+
+  /**
+   * The mark keeps its own colours in both themes.
+   *
+   * A logo that follows the theme is one the favicon cannot follow — a favicon
+   * is loaded outside the page and inherits nothing, so the tab would go one way
+   * and the header the other. `npm run check:mark` compares these three.
+   */
+  --mark-ground: #241f2e;
+  --mark-accent: #f0a04b;
+  --mark-paper: #f4f1ee;
+
+  --prose: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --code: ui-monospace, "Cascadia Mono", "SF Mono", "Menlo", "Consolas", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #191521;
+    --paper-sunk: #221d2c;
+    --ink: #ece7f0;
+    --ink-soft: #b0a6bb;
+    --ink-faint: #7b7188;
+    --line: #332c3f;
+    --accent: #f0a04b;
+    --accent-wash: #33240f;
+    --held: #86bb9a;
+    --held-wash: #17281d;
+    --danger: #e88080;
+    --danger-wash: #331717;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  * {
+    transition: none !important;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0 clamp(1rem, 4vw, 3.5rem) 4rem;
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.55 var(--prose);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── the top ─────────────────────────────────────────────────────────────── */
+
+.top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 1rem;
+  align-items: center;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1.6rem 0 1.4rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.mark {
+  width: 40px;
+  height: 40px;
+}
+
+.titling h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.thesis {
+  margin: 0.15rem 0 0;
+  max-width: 48rem;
+  color: var(--ink-soft);
+  font-size: 0.93rem;
+}
+
+.thesis b {
+  color: var(--danger);
+  font-weight: 620;
+}
+
+.claim {
+  display: grid;
+  justify-items: end;
+  gap: 0.1rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--held-wash);
+  color: inherit;
+  text-decoration: none;
+}
+
+.claim:hover,
+.claim:focus-visible {
+  border-color: var(--held);
+}
+
+.claim-figure {
+  font: 600 0.95rem/1.2 var(--code);
+  color: var(--held);
+}
+
+.claim-says {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+/* ── panels ──────────────────────────────────────────────────────────────── */
+
+main {
+  max-width: 76rem;
+  margin: 0 auto;
+}
+
+.panel {
+  padding: 2.2rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-head h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 620;
+}
+
+.panel-head p {
+  margin: 0;
+  max-width: 58rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.panel-head code {
+  font: 0.85em var(--code);
+  background: var(--paper-sunk);
+  padding: 0.05em 0.35em;
+  border-radius: 3px;
+}
+
+/* ── the archive figures ─────────────────────────────────────────────────── */
+
+.archive {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.8rem;
+  margin: 1.4rem 0 1.2rem;
+}
+
+.figure {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-sunk);
+}
+
+.figure dt {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.figure dd {
+  margin: 0.2rem 0 0;
+  font: 600 1.5rem/1.1 var(--code);
+}
+
+.figure.danger[data-showing='yes'] {
+  border-color: var(--danger);
+  background: var(--danger-wash);
+}
+
+.figure.danger[data-showing='yes'] dd {
+  color: var(--danger);
+}
+
+/* ── settings and buttons ────────────────────────────────────────────────── */
+
+.settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.setting input {
+  width: 5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 12.5px var(--code);
+}
+
+.setting .unit {
+  color: var(--ink-faint);
+}
+
+.doing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.do {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--held);
+  border-radius: 6px;
+  background: var(--held);
+  color: var(--paper);
+  font: 600 0.85rem/1.2 var(--prose);
+  cursor: pointer;
+}
+
+.do:hover {
+  filter: brightness(1.1);
+}
+
+.do.danger {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.do.quiet {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.do.quiet:hover {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+  filter: none;
+}
+
+.do:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ran {
+  margin: 1.1rem 0 0;
+  min-height: 1.4rem;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.ran b {
+  color: var(--ink);
+}
+
+/* ── the tallies ─────────────────────────────────────────────────────────── */
+
+.tallies {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  max-width: 44rem;
+}
+
+.tallies:empty {
+  display: none;
+}
+
+.tally {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0.8rem;
+  align-items: baseline;
+  padding: 0.4rem 0.7rem;
+  border-left: 2px solid var(--line);
+  border-radius: 0 5px 5px 0;
+  background: var(--paper-sunk);
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.tally.went {
+  border-left-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.tally .count {
+  font: 600 1rem var(--code);
+  text-align: right;
+  color: var(--ink);
+}
+
+/* ── decisions ───────────────────────────────────────────────────────────── */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 1.2rem 0 0.9rem;
+}
+
+.filters button {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 0.78rem/1.2 var(--code);
+  cursor: pointer;
+}
+
+.filters button:hover {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+
+.filters button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.scrolls {
+  overflow-x: auto;
+  max-height: 32rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font: 12.5px/1.5 var(--code);
+}
+
+.grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-sunk);
+  color: var(--ink-faint);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.grid td {
+  padding: 0.42rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.grid tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.grid .soft {
+  color: var(--ink-faint);
+}
+
+.verdict {
+  display: inline-block;
+  padding: 0.08rem 0.45rem;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.verdict.goes {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.verdict.stays {
+  background: var(--held-wash);
+  color: var(--held);
+}
+
+.verdict-why {
+  display: block;
+  margin-top: 0.15rem;
+  font-family: var(--prose);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+
+/* ── the switches ────────────────────────────────────────────────────────── */
+
+.switches {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1.4rem 0 0;
+  max-width: 58rem;
+}
+
+.switch {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.7rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.switch:hover {
+  border-color: var(--ink-faint);
+}
+
+.switch:has(input:checked) {
+  border-color: var(--danger);
+  background: var(--danger-wash);
+}
+
+.switch input {
+  grid-row: 1 / 3;
+  margin-top: 0.25rem;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--danger);
+}
+
+.switch-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.switch-says {
+  font-size: 0.83rem;
+  color: var(--ink-soft);
+}
+
+.orphan-list {
+  margin-top: 1.2rem;
+}
+
+.orphan-list:empty {
+  display: none;
+}
+
+.orphan-list h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 620;
+  color: var(--danger);
+}
+
+.orphan-list p {
+  margin: 0 0 0.5rem;
+  max-width: 52rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.orphan-list ul {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  list-style: none;
+  border-left: 2px solid var(--danger);
+  border-radius: 0 6px 6px 0;
+  background: var(--danger-wash);
+  font: 11.5px/1.7 var(--code);
+  color: var(--ink-soft);
+}
+
+/* ── the claims ──────────────────────────────────────────────────────────── */
+
+.claims {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.4rem;
+}
+
+.claim-card {
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.claim-card h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.93rem;
+  font-weight: 620;
+}
+
+.holds {
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  background: var(--held-wash);
+  color: var(--held);
+  font: 600 10.5px var(--code);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.holds.no {
+  background: var(--danger-wash);
+  color: var(--danger);
+}
+
+.claim-card p {
+  margin: 0 0 0.7rem;
+  max-width: 62rem;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.claim-figures {
+  display: grid;
+  gap: 0.25rem;
+  font: 12px/1.6 var(--code);
+}
+
+.claim-figures div {
+  display: grid;
+  grid-template-columns: 4rem 1fr;
+  gap: 0.8rem;
+}
+
+.claim-figures .n {
+  text-align: right;
+  font-weight: 600;
+}
+
+.claim-figures .bad .n {
+  color: var(--danger);
+}
+
+/* ── the rest ────────────────────────────────────────────────────────────── */
+
+.foot {
+  padding: 2rem 0 0;
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  max-width: 56rem;
+}
+
+.foot p {
+  margin: 0;
+}

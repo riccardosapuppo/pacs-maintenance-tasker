@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PACS Maintenance Tasker — a deletion you cannot take back</title>
+    <link rel="icon" href="/mark.svg" type="image/svg+xml" />
+    <!-- The same ground as the favicon and the stylesheet: a tab strip in one
+         colour and an icon in another is the sort of thing nobody reports and
+         everybody notices. -->
+    <meta name="theme-color" content="#241f2e" />
+    <link rel="stylesheet" href="/console.css" />
+  </head>
+
+  <body>
+    <header class="top">
+      <!-- `data-mark` tells `npm run check:mark` WHICH drawing on the page is
+           the mark. A check that compared every shape anywhere would report a
+           drift the first time a second drawing appeared. -->
+      <svg data-mark class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="var(--mark-ground)" />
+        <rect x="8" y="8" width="7" height="7" rx="1.5" fill="var(--mark-paper)" opacity="0.9" />
+        <rect x="17" y="8" width="7" height="7" rx="1.5" fill="var(--mark-paper)" opacity="0.9" />
+        <rect x="8" y="17" width="7" height="7" rx="1.5" fill="var(--mark-paper)" opacity="0.9" />
+        <circle cx="20.5" cy="20.5" r="3.5" fill="var(--mark-accent)" />
+      </svg>
+
+      <div class="titling">
+        <h1>PACS Maintenance Tasker</h1>
+        <p class="thesis">
+          A job that frees space on a medical image archive by deleting studies
+          nobody needs any more. <b>There is no undo.</b>
+        </p>
+      </div>
+
+      <a class="claim" href="#claims" data-claim>
+        <span class="claim-figure" data-claim-figure>—</span>
+        <span class="claim-says">the claims, below</span>
+      </a>
+    </header>
+
+    <main>
+      <!-- ── 1. the archive and the run ─────────────────────────────────── -->
+      <section class="panel" id="run">
+        <div class="panel-head">
+          <h2>1 · The archive, and what a run would do to it</h2>
+          <p>
+            Four hundred and nine invented studies, with real folders in a temporary
+            directory. A dry run decides and changes nothing; a real run does exactly
+            what the dry run said it would, because it is the same decision.
+          </p>
+        </div>
+
+        <div class="archive" data-archive>
+          <div class="figure">
+            <dt>studies in the catalogue</dt>
+            <dd data-studies>—</dd>
+          </div>
+          <div class="figure">
+            <dt>folders on the disk</dt>
+            <dd data-folders>—</dd>
+          </div>
+          <div class="figure">
+            <dt>moved to the recycle bin</dt>
+            <dd data-binned>—</dd>
+          </div>
+          <div class="figure danger" data-orphan-figure>
+            <dt>orphaned folders</dt>
+            <dd data-orphans>—</dd>
+          </div>
+        </div>
+
+        <div class="settings">
+          <label class="setting">
+            <span>keep every study for</span>
+            <input type="number" data-keep min="0" max="4000" step="1" />
+            <span class="unit">days</span>
+          </label>
+
+          <label class="setting">
+            <span>a report settles after</span>
+            <input type="number" data-settles min="0" max="4000" step="1" />
+            <span class="unit">days</span>
+          </label>
+        </div>
+
+        <div class="doing">
+          <button class="do" data-dry>Dry run — decide, change nothing</button>
+          <button class="do danger" data-real>Run it for real — delete</button>
+          <button class="do quiet" data-reset>Put the archive back</button>
+        </div>
+
+        <p class="ran" data-ran></p>
+
+        <div class="tallies" data-tallies></div>
+      </section>
+
+      <!-- ── 2. every decision ──────────────────────────────────────────── -->
+      <section class="panel" id="decisions">
+        <div class="panel-head">
+          <h2>2 · Every study, and why</h2>
+          <p>
+            A run that says <em>88 refused</em> and cannot break it down is a run
+            nobody can act on: half of those might be a broken sync somebody should
+            fix today and the other half studies that are simply not old enough.
+          </p>
+        </div>
+
+        <nav class="filters" data-filters aria-label="Filter by decision"></nav>
+
+        <div class="scrolls">
+          <table class="grid" data-decisions>
+            <thead>
+              <tr>
+                <th>study</th>
+                <th>patient</th>
+                <th>taken</th>
+                <th>records said</th>
+                <th>decision</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ── 3. the two mistakes, on purpose ────────────────────────────── -->
+      <section class="panel" id="mistakes">
+        <div class="panel-head">
+          <h2>3 · Make the two mistakes on purpose</h2>
+          <p>
+            Both switches default to the safe setting, and neither of them changes
+            <em>which</em> studies go — only how. Turn the disk failure on, pick the
+            other order, and run it: the orphan count above is folders that were on
+            the disk a second ago and that nothing will ever look for again.
+          </p>
+        </div>
+
+        <div class="switches">
+          <label class="switch">
+            <input type="checkbox" data-disk />
+            <span class="switch-name">The disk refuses one study in ten</span>
+            <span class="switch-says">
+              Both orderings finish when nothing goes wrong, so the difference between
+              them is invisible until the second step fails. This makes it fail.
+            </span>
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" data-order />
+            <span class="switch-name">Delete the catalogue row first, then the files</span>
+            <span class="switch-says">
+              The row is the only thing that knows where the files are. Remove it first
+              and a failed disk write leaves folders nothing can find — not this job,
+              which starts every run from the catalogue, and not anybody looking for a
+              study by name.
+            </span>
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" data-permanent />
+            <span class="switch-name">Delete the files permanently, no recycle bin</span>
+            <span class="switch-says">
+              Moving a folder aside costs a rename and buys the only thing this job
+              otherwise has none of: a few days in which somebody can notice.
+            </span>
+          </label>
+        </div>
+
+        <div class="orphan-list" data-orphan-list></div>
+      </section>
+
+      <!-- ── 4. the claims ─────────────────────────────────────────────── -->
+      <section class="panel" id="claims">
+        <div class="panel-head">
+          <h2>4 · Three claims that can fail</h2>
+          <p>
+            Not a benchmark. Nothing here is a number that means <em>fast</em>. Each
+            claim is about being right on an operation nobody can take back, and each
+            one carries what being wrong would have cost. These are what
+            <code>npm run measure</code> prints, computed the same way.
+          </p>
+        </div>
+
+        <div class="claims" data-claims></div>
+      </section>
+
+      <footer class="foot">
+        <p>
+          Every study, patient, booking and report here is invented. No clinic, no
+          patient and no real archive appears anywhere in this repository. The files
+          this deletes are written by it, into a temporary folder, and go when the
+          process stops.
+        </p>
+      </footer>
+    </main>
+
+    <script type="module" src="/console.js"></script>
+  </body>
+</html>

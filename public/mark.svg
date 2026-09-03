@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!--
+    Four studies; three of them still here, and the place where the fourth was.
+    The circle is not a gap: it is the record that something used to be there,
+    which is the only thing this job leaves behind and the whole reason it has
+    to be right the first time.
+
+    Two files because a favicon is loaded outside the page and inherits none of
+    its colours, so its own have to be literal. `npm run check:mark` compares
+    the geometry and ignores the colours, which are the part that has to differ.
+  -->
+  <rect width="32" height="32" rx="8" fill="#241f2e"/>
+  <rect x="8" y="8" width="7" height="7" rx="1.5" fill="#f4f1ee" opacity="0.9"/>
+  <rect x="17" y="8" width="7" height="7" rx="1.5" fill="#f4f1ee" opacity="0.9"/>
+  <rect x="8" y="17" width="7" height="7" rx="1.5" fill="#f4f1ee" opacity="0.9"/>
+  <circle cx="20.5" cy="20.5" r="3.5" fill="#f0a04b"/>
+</svg>
