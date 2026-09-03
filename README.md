@@ -33,13 +33,21 @@ true. So does CI.
 node --version        # v24.19.0 here; anything 24.x or above will do
 ```
 
-Node 24 because both stores are [`node:sqlite`](https://nodejs.org/api/sqlite.html),
-which is in the runtime and unflagged from 24. That is the whole reason for the
-floor. CI runs the tests on 24 and on 25, so the claim is checked rather than
-asserted.
+Node 24 for two reasons, and both are about not installing things. The stores
+are [`node:sqlite`](https://nodejs.org/api/sqlite.html), which is in the runtime
+and unflagged from 24. And **this is TypeScript that Node runs directly**: from
+24 the runtime strips type annotations at load, so `node src/index.ts` is the
+whole story — no transpiler, no build step, no output directory holding a stale
+copy of the source.
+
+`tsconfig.json` has `erasableSyntaxOnly`, which makes `tsc` reject anything Node
+cannot strip. So `npm run typecheck` is not only a check on the types: it is the
+check that this project still runs without a build. CI does both on 24 and on
+25, so the floor is exercised rather than asserted.
 
 **No external services.** No database to install, no archive to point at, no
-API key, no network access after `npm install`.
+API key, no network access after `npm install`. Nothing this program needs at
+run time comes from outside the runtime: `node:sqlite`, `node:http`, `node:fs`.
 
 **It deletes real files, and only its own.** Every study, patient, booking and
 report is invented in `src/measure/corpus.js`. The folders are written by this
@@ -49,15 +57,17 @@ refuses any path that is not under that directory — checked in
 catalogue computes its paths by joining three columns and one wrong row would
 otherwise point this at somewhere else entirely.
 
-**One dependency, and only for the checks.** `playwright-core` is a
-`devDependency` used by `npm run check:screen` and `npm run screenshots`, which
-drive a real browser. About 2 MB. It looks for Edge, then Chrome, then Chromium,
+**Three dependencies, none of them at run time.** `typescript` and
+`@types/node` are for `npm run typecheck` and for whatever editor you open this
+in; nothing imports them and the program never loads them. `playwright-core` is
+used by `npm run check:screen` and `npm run screenshots`, which drive a real
+browser. About 2 MB. It looks for Edge, then Chrome, then Chromium,
 and **says which one it got**; `--channel <name>` picks one. If none is there,
 those two commands exit **2** and say so — neither passing nor failing, because
 a check that did not run is not a check that passed.
 
-**Disk and network.** `npm install` fetches one package: about 2 MB downloaded,
-5 MB on disk with `node_modules`. A run writes about 400 folders of six small
+**Disk and network.** `npm install` fetches three packages: about 30 MB on disk
+with `node_modules`, most of it the TypeScript compiler. A run writes about 400 folders of six small
 files into the temporary directory and removes them again.
 
 **To put the machine back:** delete the folder. Nothing is installed globally,
@@ -86,7 +96,8 @@ From the terminal instead:
 npm run run:dry          decide against the invented archive, change nothing
 npm run run:for-real     do it — and it is the same decision
 npm run measure          the three claims, and what being wrong would cost
-npm test                 38 tests, about thirteen seconds — several of them build archives on disk
+npm test                 38 tests, about thirteen seconds — several build archives on disk
+npm run typecheck        the types, and that Node can still run this without a build
 npm run check:screen     drives the console in a real browser — 36 checks
 npm run check:serving    what the service actually sends — 39 checks
 npm run check:mark       the mark in the header and the mark in the tab
