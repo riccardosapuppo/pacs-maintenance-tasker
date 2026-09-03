@@ -1,0 +1,224 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Every job here has a timeout. One that hangs is worse than one that fails:
+  # it stays amber for six hours and nobody looks at it, while a red one sends
+  # an email.
+  the-claims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The README says "Node 24 or newer", so both ends of that are run. A
+        # declared minimum nobody exercises is a guess, and node:sqlite is
+        # exactly the sort of thing that moves between majors.
+        node: ['24', '25']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - run: npm ci
+
+      - name: the parts
+        run: npm test
+
+      - name: the three claims
+        # Exits non-zero if any of the three stops being true. They are what the
+        # README opens with, so they are the thing that has to be able to fail.
+        run: npm run measure
+
+      - name: a dry run and a real run choose the same studies
+        # The first claim again, from outside. `measure` proves it in process;
+        # this proves that the two npm scripts a person would actually type
+        # still agree — a different thing, and the one that rots.
+        run: |
+          npm run run:dry      | grep -oE 'chosen +[0-9]+' | tr -s ' ' > /tmp/dry.txt
+          npm run run:for-real | grep -oE 'chosen +[0-9]+' | tr -s ' ' > /tmp/real.txt
+
+          echo "dry:  $(cat /tmp/dry.txt)"
+          echo "real: $(cat /tmp/real.txt)"
+
+          # A grep that matches nothing writes an empty file, and two empty
+          # files compare equal. That is a check that passes by finding nothing,
+          # so the emptiness is the first thing tested.
+          if [ ! -s /tmp/dry.txt ]; then
+            echo "The dry run printed no count at all, so this compared nothing."
+            exit 1
+          fi
+
+          diff /tmp/dry.txt /tmp/real.txt
+
+      - name: the mark in the header and the mark in the tab
+        run: npm run check:mark
+
+      - name: nobody can be handed yesterday's page
+        run: npm run check:serving
+
+      - name: it answers, over HTTP, from a standing start
+        # The README opens with `npm start`. This is that command, and requests
+        # to the thing it starts — the check that catches a project which builds
+        # and tests and does not run.
+        run: |
+          PORT=4199 node src/index.js --no-open &
+          service=$!
+          trap 'kill $service 2>/dev/null || true' EXIT
+
+          for try in $(seq 1 150); do
+            if curl -sf "http://127.0.0.1:4199/api/health" > /dev/null; then break; fi
+            sleep 0.2
+          done
+
+          # Parsed, not grepped.
+          #
+          # A sibling project's version of this looked for the text '"ok":true'
+          # while the service answers in indented JSON — '"ok": true', with a
+          # space. It went red while the service was answering perfectly, which
+          # is the most expensive kind of red: it sends you to the service.
+          curl -sf "http://127.0.0.1:4199/api/health" > /tmp/health.json
+          node -e 'const said = JSON.parse(require("fs").readFileSync("/tmp/health.json")); if (said.ok !== true || said.allHold !== true) { console.error("it did not answer about itself:", said); process.exit(1); }'
+
+          # And the safe default, over HTTP: a run request with nothing in it
+          # must not delete anything. A missing field, a typo in its name, or a
+          # page that forgot to send it all have to mean "do not".
+          before=$(curl -sf "http://127.0.0.1:4199/api/state" | node -pe 'JSON.parse(require("fs").readFileSync(0)).studies')
+
+          curl -sf -X POST "http://127.0.0.1:4199/api/run" -H 'content-type: application/json' -d '{}' > /dev/null
+
+          after=$(curl -sf "http://127.0.0.1:4199/api/state" | node -pe 'JSON.parse(require("fs").readFileSync(0)).studies')
+
+          echo "studies before: $before   after an empty run request: $after"
+
+          if [ "$before" != "$after" ]; then
+            echo "An empty run request deleted something. The default is not safe."
+            exit 1
+          fi
+
+  # Driving the console needs a browser, and a runner has Chrome rather than the
+  # Edge this was written against. A separate job because it is the slow one,
+  # and because a red here means something different from a red above: the parts
+  # are fine and the screen is not.
+  through-the-screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - run: npm ci
+
+      - name: the console, driven in a real browser
+        # --channel chrome rather than leaving it to find one. The tool would
+        # fall back on its own and say which it used, but a CI step that picks
+        # its browser silently is one whose green nobody can reproduce.
+        run: npm run check:screen -- --channel chrome
+
+  # The check that the repository is the repository, rather than a working copy
+  # somebody pushed.
+  the-repository:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: every picture the README asks for is in the repository
+        run: |
+          missing=0
+
+          # Read out of the README rather than listed here. A list in two places
+          # is a list that goes stale in one of them, silently, and the one that
+          # goes stale is always the copy.
+          for picture in $(grep -o 'docs/[a-z-]*\.png' README.md | sort -u); do
+            if [ ! -f "$picture" ]; then
+              echo "The README shows $picture and it is not in the repository."
+              missing=$((missing + 1))
+            fi
+          done
+
+          if [ "$missing" -eq 0 ]; then
+            echo "Every picture the README shows is here."
+          fi
+
+          exit $missing
+
+      - name: every command the README gives exists as a script
+        run: |
+          bad=0
+
+          # Only the commands in code blocks, not every `npm run` in prose. A
+          # sibling project's version matched the words "npm could install" in
+          # a sentence and went looking for a script called `could`. And the
+          # character class needs the HYPHEN: without it `run:for-real` was
+          # read as `run:for`, and this reported a missing script that was
+          # there all along.
+          for name in $(sed -n '/^```/,/^```/p' README.md | grep -oE '^npm run [a-z:-]+' | awk '{print $3}' | sort -u); do
+            if ! node -pe "Object.keys(require('./package.json').scripts).includes('$name')" | grep -q true; then
+              echo "The README gives 'npm run $name' and package.json has no such script."
+              bad=$((bad + 1))
+            fi
+          done
+
+          if [ "$bad" -eq 0 ]; then
+            echo "Every npm run in the README exists."
+          fi
+
+          exit $bad
+
+      - name: nothing here looks like real contact details or a real host
+        run: |
+          # What this does NOT do: search for the client's name.
+          #
+          # That check exists and matters, but it belongs to the publication
+          # gate outside this repository, where the terms can be named. Putting
+          # the list in a workflow file means the repository contains the very
+          # names it is meant not to contain -- and anybody reading the CI
+          # learns them. It went in that way first and the gate caught it.
+          #
+          # What is checkable from inside is what the README claims: the corpus
+          # is invented, so nothing here should look like a way to reach anyone.
+          bad=0
+
+          if git grep -nIE "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}" -- . > /tmp/found.txt; then
+            echo "Something that looks like an email address:"
+            cat /tmp/found.txt
+            bad=$((bad + 1))
+          fi
+
+          # A PRIVATE address, which is the thing that would actually be a
+          # leak: somebody's server, somebody's subnet.
+          #
+          # Not any IPv4. A DICOM study UID is a dotted number and a short one
+          # -- 1.2.3.6 in the fixtures -- matches an IPv4 pattern exactly. The
+          # first version of this went red on the test file, which is a check
+          # that fails on correct content and would have been switched off
+          # within a week.
+          if git grep -nIE "(10.|192.168.|172.(1[6-9]|2[0-9]|3[01]).)[0-9]{1,3}.[0-9]{1,3}" -- . > /tmp/found.txt; then
+            echo "A private network address:"
+            cat /tmp/found.txt
+            bad=$((bad + 1))
+          fi
+
+          if [ "$bad" -eq 0 ]; then
+            echo "No email address and no non-loopback host anywhere in the tree."
+          fi
+
+          exit $bad
