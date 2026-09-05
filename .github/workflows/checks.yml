@@ -146,25 +146,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: every picture the README asks for is in the repository
-        run: |
-          missing=0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
-          # Read out of the README rather than listed here. A list in two places
-          # is a list that goes stale in one of them, silently, and the one that
-          # goes stale is always the copy.
-          for picture in $(grep -o 'docs/[a-z-]*\.png' README.md | sort -u); do
-            if [ ! -f "$picture" ]; then
-              echo "The README shows $picture and it is not in the repository."
-              missing=$((missing + 1))
-            fi
-          done
+      # No `npm ci` in this job, and none needed: the check below imports
+      # nothing but node:fs and node:path. What is being checked here is the
+      # shape of the repository, which does not depend on its dependencies.
 
-          if [ "$missing" -eq 0 ]; then
-            echo "Every picture the README shows is here."
-          fi
-
-          exit $missing
+      - name: every path the README points at is in the repository
+        # This used to be a grep for docs/*.png written out here. It read the
+        # list out of the README rather than repeating it, which was right, and
+        # it looked at the pictures only — so the rename of every source file
+        # from .js to .ts went straight past it, and the README went on pointing
+        # thirteen times at files that were no longer there.
+        #
+        # Now it is a check in the repository, so it can be run before pushing
+        # rather than found out afterwards, and it reads every path: the
+        # pictures, the links into the source, and the map at the bottom.
+        run: npm run check:paths
 
       - name: every command the README gives exists as a script
         run: |

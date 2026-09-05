@@ -7,7 +7,7 @@
  * job or by anything else, because every query that would ever look for them
  * starts here.
  *
- * That asymmetry is the reason `run.js` deletes in the order it does, and it is
+ * That asymmetry is the reason `run.ts` deletes in the order it does, and it is
  * the third thing `npm run measure` puts a number on.
  *
  * ── Why SQLite ───────────────────────────────────────────────────────────────

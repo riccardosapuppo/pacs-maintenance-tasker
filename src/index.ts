@@ -6,7 +6,7 @@
  *     npm start -- --port 4101 --no-open
  *
  * Localhost only, and this one means it. Nothing here is anybody's data —
- * every study, patient and booking is invented in `src/measure/corpus.js`, and
+ * every study, patient and booking is invented in `src/measure/corpus.ts`, and
  * the files are written into a temporary folder — but this is a job that
  * deletes things, and a job that deletes things does not bind every interface
  * on the machine because a default said so.

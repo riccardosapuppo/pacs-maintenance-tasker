@@ -14,7 +14,7 @@
  * see. There is no undo for a study. There is barely a "what happened" once the
  * files are gone and the catalogue row with them.
  *
- * So the decision is made here, in the open, over data — and `run.js` maps every
+ * So the decision is made here, in the open, over data — and `run.ts` maps every
  * study through it and *then* acts. The dry run and the real run call this
  * identical function on identical input, which is not a promise anybody has to
  * keep by being careful: it is the only code there is.

@@ -23,7 +23,7 @@
  *   could not ask             — the database did not answer
  *
  * A function that returned "the rows" and let an empty array speak for itself
- * is the shape the mistake in `rules.js` was made in.
+ * is the shape the mistake in `rules.ts` was made in.
  */
 
 import { DatabaseSync } from 'node:sqlite';
@@ -65,7 +65,7 @@ const SCHEMA = `
     withdrawn   INTEGER NOT NULL DEFAULT 0,
     -- NULL means not reported. The placeholder date means the same thing said
     -- by a column that was not allowed to be NULL, and it is a different value
-    -- that has to be handled separately -- see NOT_YET in decide/rules.js.
+    -- that has to be handled separately -- see NOT_YET in decide/rules.ts.
     reported_on TEXT
   );
 

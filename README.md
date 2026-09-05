@@ -50,10 +50,10 @@ API key, no network access after `npm install`. Nothing this program needs at
 run time comes from outside the runtime: `node:sqlite`, `node:http`, `node:fs`.
 
 **It deletes real files, and only its own.** Every study, patient, booking and
-report is invented in `src/measure/corpus.js`. The folders are written by this
+report is invented in `src/measure/corpus.ts`. The folders are written by this
 job into a fresh directory under your system temporary folder, and the store
 refuses any path that is not under that directory — checked in
-[`src/files/store.js`](src/files/store.js), before touching the disk, because the
+[`src/files/store.ts`](src/files/store.ts), before touching the disk, because the
 catalogue computes its paths by joining three columns and one wrong row would
 otherwise point this at somewhere else entirely.
 
@@ -101,6 +101,7 @@ npm run typecheck        the types, and that Node can still run this without a b
 npm run check:screen     drives the console in a real browser — 36 checks
 npm run check:serving    what the service actually sends — 39 checks
 npm run check:mark       the mark in the header and the mark in the tab
+npm run check:paths      every path written down here is a path that is here
 npm run screenshots      regenerates every picture in docs/
 ```
 
@@ -125,7 +126,7 @@ outcomes, not two:
 - **the question was put and came back empty**
 - **the database did not answer**
 
-The whole of [`src/decide/rules.js`](src/decide/rules.js) is a pure function
+The whole of [`src/decide/rules.ts`](src/decide/rules.ts) is a pure function
 over those. It reads no database, deletes nothing, and returns a decision with a
 reason, because the run has to be able to answer *why* for every study it
 touched, and a decision tangled up with the deleting can only be understood by
@@ -209,6 +210,13 @@ that, by checking the source for `Date.now(` and friends.
 A test also pins the numbers this README quotes. Change the corpus and it goes
 red, which is the arrangement that stops a README slowly becoming fiction.
 
+`npm run check:paths` does the same for the names. Every file this page points
+at — the map at the bottom, the two links into the source, the pictures — is
+read out of the page and looked for on the disk, and the paths written into the
+source comments are read the same way. It exists because a rename once left
+this README pointing thirteen times at files that were no longer there, on a
+repository where everything else was green.
+
 ---
 
 ## What it does not do
@@ -242,14 +250,14 @@ red, which is the arrangement that stops a README slowly becoming fiction.
 ## Where things are
 
 ```
-src/decide/rules.js      may this study go? a pure function, and a reason
-src/decide/run.js        look decides; carryOut acts; the flag chooses between
-src/archive/catalogue.js the store that owns the pointer
-src/records/system.js    the store that owns the authority — and three outcomes
-src/files/store.js       real folders, a recycle bin, and a way to make it fail
-src/measure/corpus.js    409 invented studies, no clock, no randomness
-src/measure/claims.js    the three claims, each able to be false
-src/http/api.js          the service: node:http and nothing else
+src/decide/rules.ts      may this study go? a pure function, and a reason
+src/decide/run.ts        look decides; carryOut acts; the flag chooses between
+src/archive/catalogue.ts the store that owns the pointer
+src/records/system.ts    the store that owns the authority — and three outcomes
+src/files/store.ts       real folders, a recycle bin, and a way to make it fail
+src/measure/corpus.ts    409 invented studies, no clock, no randomness
+src/measure/claims.ts    the three claims, each able to be false
+src/http/api.ts          the service: node:http and nothing else
 public/                  the console: no framework, no build step
 ```
 

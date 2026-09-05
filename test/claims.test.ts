@@ -99,7 +99,7 @@ test('the corpus is built without reading the clock', () => {
     .filter((one) => !one.startsWith('*') && !one.startsWith('/*') && !one.startsWith('//'));
 
   for (const forbidden of ['Date.now(', 'new Date()', 'Math.random(']) {
-    assert.ok(!code.some((one) => one.includes(forbidden)), `corpus.js must not use ${forbidden}`);
+    assert.ok(!code.some((one) => one.includes(forbidden)), `corpus.ts must not use ${forbidden}`);
   }
 });
 

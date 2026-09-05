@@ -103,7 +103,7 @@ const PLAN = [
    * already deleted but still in the database".
    *
    * It is in the corpus because it is what makes a dry run and a real run
-   * disagree, if they are two pieces of code. See claims.js.
+   * disagree, if they are two pieces of code. See claims.ts.
    */
   { kind: 'files already gone', howMany: 9 },
 ];

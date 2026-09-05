@@ -14,7 +14,7 @@
  * leaves the revalidation that serves somebody a stale page.
  *
  * There is no framework here, so the serving is thirty lines in
- * `src/http/api.js`. That does not make it right; it makes it checkable.
+ * `src/http/api.ts`. That does not make it right; it makes it checkable.
  *
  * It starts its own service on a port nothing else uses, so it can never go
  * green having measured a stranger's process.
