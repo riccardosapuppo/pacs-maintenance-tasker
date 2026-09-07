@@ -265,9 +265,6 @@ public/                  the console: no framework, no build step
 
 ## About the original
 
-The original was built for a client and lives in a private repository. This is
-an independent reimplementation, written from scratch with synthetic data.
-
 That original was a small Node service on the archive's own machine, running two
 modules on a timer: this one, and a second that pushed images to a patient portal
 and notified the patient. It read its database connection strings encrypted and
@@ -280,6 +277,19 @@ silence, the ordering of the two deletions, and the dry run being the same code
 path as the real one are the three lessons this repository exists to state, and
 they were all learned from reading a job that had been running against a real
 archive.
+
+## Production reconstruction
+
+This repository is an independent reconstruction of a production system I
+designed and developed.
+
+Confidentiality and intellectual property constraints mean the original cannot
+be published. It was rebuilt from scratch so it could be shown and run,
+preserving the core architecture, workflows and technical challenges of the
+production solution, with newly written code and fictional data.
+
+No proprietary source code, confidential data or client assets from the
+original system are included in this repository.
 
 ---
 
