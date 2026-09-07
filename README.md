@@ -37,7 +37,7 @@ Node 24 for two reasons, and both are about not installing things. The stores
 are [`node:sqlite`](https://nodejs.org/api/sqlite.html), which is in the runtime
 and unflagged from 24. And **this is TypeScript that Node runs directly**: from
 24 the runtime strips type annotations at load, so `node src/index.ts` is the
-whole story — no transpiler, no build step, no output directory holding a stale
+whole story. No transpiler, no build step, no output directory holding a stale
 copy of the source.
 
 `tsconfig.json` has `erasableSyntaxOnly`, which makes `tsc` reject anything Node
@@ -51,11 +51,10 @@ run time comes from outside the runtime: `node:sqlite`, `node:http`, `node:fs`.
 
 **It deletes real files, and only its own.** Every study, patient, booking and
 report is invented in `src/measure/corpus.ts`. The folders are written by this
-job into a fresh directory under your system temporary folder, and the store
-refuses any path that is not under that directory — checked in
-[`src/files/store.ts`](src/files/store.ts), before touching the disk, because the
-catalogue computes its paths by joining three columns and one wrong row would
-otherwise point this at somewhere else entirely.
+job into a fresh directory under your system temporary folder. Before touching
+the disk, [`src/files/store.ts`](src/files/store.ts) refuses any path that is not
+under that directory, because the catalogue computes its paths by joining three
+columns and one wrong row would otherwise point this at somewhere else entirely.
 
 **Three dependencies, none of them at run time.** `typescript` and
 `@types/node` are for `npm run typecheck` and for whatever editor you open this
@@ -63,7 +62,7 @@ in; nothing imports them and the program never loads them. `playwright-core` is
 used by `npm run check:screen` and `npm run screenshots`, which drive a real
 browser. About 2 MB. It looks for Edge, then Chrome, then Chromium,
 and **says which one it got**; `--channel <name>` picks one. If none is there,
-those two commands exit **2** and say so — neither passing nor failing, because
+those two commands exit **2** and say so, neither passing nor failing, because
 a check that did not run is not a check that passed.
 
 **Disk and network.** `npm install` fetches three packages: about 30 MB on disk
@@ -107,8 +106,8 @@ npm run screenshots      regenerates every picture in docs/
 
 Run `npm run run:dry` and `npm run run:for-real` one after the other and compare
 the two reports. They print the same 255 studies and the same 94 refusals,
-because they are the same decision — which is the first claim, made where you
-can check it rather than asserted in a paragraph.
+because they are the same decision, which is the first claim, made where you can
+check it rather than asserted in a paragraph.
 
 ---
 
@@ -122,7 +121,7 @@ a different database, owned by a different product, joined on nothing but an
 accession number that both sides happen to write down — and it has three
 outcomes, not two:
 
-- **rows came back** — there is something to reason about
+- **rows came back**: there is something to reason about
 - **the question was put and came back empty**
 - **the database did not answer**
 
@@ -143,8 +142,8 @@ those are not the same news.
 
 The rule this project exists to get right.
 
-When the record system returns **nothing** for a study — no booking, no report,
-no row at all — that is not it saying "go ahead". Every reason it might say
+When the record system returns **nothing** for a study (no booking, no report,
+no row at all), that is not it saying "go ahead". Every reason it might say
 nothing is a reason to stop: the accession number is written differently on the
 two sides, a sync has not run, the study came from somewhere else, the query hit
 a replica that is behind, somebody typed the code in by hand.
@@ -152,9 +151,9 @@ a replica that is behind, somebody typed the code in by hand.
 It is worth being precise about how easy this is to get wrong, because the
 mistake is not carelessness. **A `catch` block is obviously dangerous, so it gets
 a safe default without anybody having to think about it. An empty result set is
-not obviously anything** — it is a perfectly ordinary return value — so it falls
-through to whatever the last line of the function happens to be. The loud failure
-gets guarded and the quiet one does not.
+not obviously anything** (a perfectly ordinary return value), so it falls through
+to whatever the last line of the function happens to be. The loud failure gets
+guarded and the quiet one does not.
 
 The rule as it was is kept, next to the real one, as `decideAsItWas`. It is not
 dead code: the measurement runs both over the same corpus so that "we fixed a
@@ -166,22 +165,22 @@ bug" can be a number instead of a sentence.
 
 ![Three switches, all defaulting to the safe setting](docs/the-two-mistakes.png)
 
-A study is in two places and there is no transaction across them. Whichever is
-removed first, the other can fail — and the two leftovers are not equally bad:
+A study is in two places and there is no transaction across them, so whichever
+is removed first, the other can fail. The two leftovers are not equally bad:
 
-- **the catalogue row first** — the row is gone and the files are not. Nothing
+- **the catalogue row first**: the row is gone and the files are not. Nothing
   knows they are there. No future run finds them, because every run starts from
   the catalogue. They sit on the disk for ever.
-- **the files first** — the files are gone and the row is not. The next run picks
+- **the files first**: the files are gone and the row is not. The next run picks
   the same study up, gets *was not there* from the disk, and finishes the job.
 
 One is garbage nothing can find; the other is work that finishes itself. Same
 failure, same frequency.
 
 The console has a switch for the ordering, a switch for the recycle bin, and a
-switch that makes the disk refuse one study in ten — because without that last
-one both orderings finish and the difference between them is invisible. Turn
-them on and run it:
+switch that makes the disk refuse one study in ten, because without that last
+one both orderings finish and the difference between them is invisible. Turn them on and run
+it:
 
 ![25 orphaned folders, and no error anywhere](docs/orphans.png)
 
@@ -196,16 +195,16 @@ sides. A real archive does not, which is why they would never be found at all.
 ![The three claims, on the page](docs/the-claims.png)
 
 Not a benchmark. There is no number here that means *fast*. What is measured is
-whether the job is right about an operation nobody can take back, and — where it
-is right — what being wrong would have cost, in studies.
+whether the job is right about an operation nobody can take back, and what being
+wrong would have cost where it is right, in studies.
 
 The corpus is 409 invented studies with real folders, covering every awkward
 case: a booking withdrawn, every line withdrawn separately, a booking with two
 examinations and one report, a report column that could not be `NULL` and so
 holds `1900-01-01`, a study whose files somebody already cleared by hand, a
 study with no accession number at all. There is no clock in it and no
-randomness, so the numbers are the same on every machine — and a test asserts
-that, by checking the source for `Date.now(` and friends.
+randomness, so the numbers are the same on every machine, and a test asserts
+that by checking the source for `Date.now(` and friends.
 
 A test also pins the numbers this README quotes. Change the corpus and it goes
 red, which is the arrangement that stops a README slowly becoming fiction.
@@ -222,7 +221,7 @@ repository where everything else was green.
 ## What it does not do
 
 - **It is not connected to a PACS.** The archive is `node:sqlite` in memory with
-  a schema shaped like a real one — a study row, a storage row, a filesystem row,
+  a schema shaped like a real one: a study row, a storage row, a filesystem row,
   joined to work out a path. A real deployment is SQL Server or Postgres
   depending on the build, which is why the original carried two spellings of
   every query; none of that is interesting to demonstrate and all of it needs a
@@ -232,7 +231,7 @@ repository where everything else was green.
   sent an SMS. That half is not here: it is a different subject, and this one is
   already about the part that cannot be undone.
 - **The recycle bin is a rename, not a policy.** Nothing empties it, nothing ages
-  it out, and it is on the same disk — so it buys you a few days to notice and
+  it out, and it is on the same disk, so it buys you a few days to notice and
   no protection at all from the disk itself.
 - **Two stores, still no transaction.** Ordering the two deletions well makes
   the failure recoverable; it does not make it atomic. A crash between the two
@@ -272,7 +271,7 @@ shelled out to a separate executable to decrypt them; none of that is here, and
 neither is any configuration file from it.
 
 The three claims are all things it did not have, and two of them are things it
-got wrong — which is the reason they are worth writing down. The rule about
+got wrong, which is why they are worth writing down. The rule about
 silence, the ordering of the two deletions, and the dry run being the same code
 path as the real one are the three lessons this repository exists to state, and
 they were all learned from reading a job that had been running against a real
@@ -295,6 +294,6 @@ original system are included in this repository.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 Developed by Riccardo Sapuppo.
