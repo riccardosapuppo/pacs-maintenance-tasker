@@ -605,3 +605,38 @@ main {
 .foot p {
   margin: 0;
 }
+
+/* The signature line. The version stays out of it: this page already says what
+   it is at the top, and a number nobody can check adds nothing here. */
+.foot .by {
+  margin: 0.55rem 0 0;
+}
+
+/* The name is the only link in this footer, and the footer is the quietest text
+   on the page — so an anchor left to itself would arrive system blue and read as
+   pasted in. It takes no new colour: it steps up one stop, from the --ink-faint
+   the rest of the footer is set in to the --ink-soft this console already uses
+   for secondary text. That lift is visible but it is not a signal anybody should
+   have to trust at 0.8rem, so the underline is there before the pointer is, thin
+   and set low enough to clear the descenders. Hover goes the last step to --ink,
+   the way the quiet button darkens. The focus ring is the one the buttons wear,
+   and the radius only keeps it from cutting the corners of a small word.
+   The transition is a colour change and nothing else, and the reduced-motion
+   rule at the top of this file switches it off with everything else. */
+.foot .by a {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  border-radius: 3px;
+  transition: color 0.15s ease;
+}
+
+.foot .by a:hover {
+  color: var(--ink);
+}
+
+.foot .by a:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
