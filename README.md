@@ -95,7 +95,7 @@ From the terminal instead:
 npm run run:dry          decide against the invented archive, change nothing
 npm run run:for-real     do it — and it is the same decision
 npm run measure          the three claims, and what being wrong would cost
-npm test                 38 tests, about thirteen seconds — several build archives on disk
+npm test                 40 tests, about thirteen seconds — several build archives on disk
 npm run typecheck        the types, and that Node can still run this without a build
 npm run check:screen     drives the console in a real browser — 36 checks
 npm run check:serving    what the service actually sends — 39 checks

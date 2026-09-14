@@ -19,6 +19,7 @@
 
 import { aBrowser } from './a-browser.ts';
 import { startTheService } from './with-the-service.ts';
+import { holdTheReadmeToIt } from './readme-says.ts';
 
 const show = process.argv.includes('--show');
 
@@ -192,4 +193,9 @@ try {
 }
 
 console.log(`\n  ${checks} checks, ${bad} of them failed\n`);
-process.exit(bad ? 1 : 0);
+
+// Before the exit, not after it: this file leaves by `process.exit`, which
+// does not stop for an exit code set afterwards.
+holdTheReadmeToIt('npm run check:screen', checks);
+
+process.exit(bad || process.exitCode ? 1 : 0);
